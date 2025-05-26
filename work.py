@@ -5,6 +5,37 @@ from datetime import datetime
 import re
 import io
 
+# Define extraction functions (from pdfidentifier(test).py)
+def extract_location(text):
+    pattern = r"Details:\s*(TC|CMS)\s+(\d{1,3}[A-Z0-9]?)"
+    match = re.search(pattern, text, re.IGNORECASE)
+    if match:
+        return f"{match.group(1).upper()} {match.group(2)}"
+    return None
+
+def extract_follow_up(text, location):
+    if not location:
+        return None
+    pattern = rf"{re.escape(location)}\s*(.*)"
+    match = re.search(pattern, text, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return None
+
+def extract_work_order_ref(text):
+    pattern = r"W\.O\. REF\. 工作單號碼：\s*(WO\d{9}-\d{3})"
+    match = re.search(pattern, text)
+    if match:
+        return match.group(1)
+    return None
+
+def extract_estimated_cost(text):
+    pattern = r"ESTIMATED COST 估計費用\s*:\s*HK\$\s*([\d,]+\.\d{2})"
+    match = re.search(pattern, text)
+    if match:
+        return match.group(1)
+    return None
+
 # Streamlit UI
 st.title("PDF Identifier and CSV Generator")
 
@@ -30,11 +61,16 @@ if st.button("Process PDFs"):
                 estimated_cost = None
                 for page in pdf.pages:
                     text = page.extract_text()
+                    st.text(f"Extracted text from page:\n{text}")  # Debug: Print extracted text
+
+                    # Extract data
                     if identifier in text:
                         start_index = text.find(identifier) + len(identifier)
                         extracted_date = text[start_index:].strip().split()[0]
-                    # Add your extraction logic here (e.g., location, follow-up action, etc.)
-                    # ...
+                    location = extract_location(text)
+                    follow_up_action = extract_follow_up(text, location)
+                    work_order_ref = extract_work_order_ref(text)
+                    estimated_cost = extract_estimated_cost(text)
 
                 # Format the date and store the row if found
                 if extracted_date:
