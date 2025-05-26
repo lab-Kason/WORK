@@ -61,7 +61,7 @@ if st.button("Process PDFs"):
                 estimated_cost = None
                 for page in pdf.pages:
                     text = page.extract_text()
-                    st.text(f"Extracted text from page:\n{text}")  # Debug: Print extracted text
+                    #st.text(f"Extracted text from page:\n{text}")  # Debug: Print extracted text
 
                     # Extract data
                     if identifier in text:
