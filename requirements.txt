@@ -1,2 +1,6 @@
 streamlit
 pdfplumber
+python-docx
+pdfminer.six
+xlrd
+openpyxl
