@@ -173,8 +173,9 @@ def main():
         if uploaded_files:
             rows = []
             for uploaded_file in uploaded_files:
-                # Save the uploaded file to a temporary directory
-                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                # Save the uploaded file with its original extension
+                file_extension = os.path.splitext(uploaded_file.name)[1]
+                with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
                     temp_file.write(uploaded_file.read())
                     temp_file_path = temp_file.name
                 
