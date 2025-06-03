@@ -3,32 +3,26 @@ import csv
 import os
 import sys
 import tempfile
-from pdfminer.high_level import extract_text  # For reading PDF files
-from PyPDF2 import PdfReader  # Fallback for reading PDF files
+from PyPDF2 import PdfReader  # For reading PDF files
 from docx import Document  # For reading .docx files
 import xlrd  # For reading .xls files
 from openpyxl import load_workbook  # For reading .xlsx files
 
 # Increase recursion limit
-sys.setrecursionlimit(5000)
+sys.setrecursionlimit(10000)
 
 # File extraction functions
 def extract_text_from_pdf(pdf_path):
     try:
-        # Attempt extraction with pdfminer.six
-        text = extract_text(pdf_path)
+        # Attempt extraction with PyPDF2
+        reader = PdfReader(pdf_path)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
         return text
-    except Exception:
-        try:
-            # Fallback to PyPDF2
-            reader = PdfReader(pdf_path)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-            return text
-        except Exception as e:
-            st.error(f"Could not read PDF file {pdf_path}: {e}")
-            return ""
+    except Exception as e:
+        st.error(f"Could not read PDF file {pdf_path}: {e}")
+        return ""
 
 def extract_text_from_txt(txt_path):
     try:
@@ -86,77 +80,6 @@ def extract_text(file_path):
     else:
         st.error(f"Unsupported file type: {file_path}")
         return ""
-
-# Data extraction function
-def extract_data_from_pdf(text, keywords, behaviors):
-    extracted_data = {}
-    if isinstance(text, list):  # Handle .xls data (list of rows)
-        for column, keyword in keywords.items():
-            behavior = behaviors.get(column, "right")
-            value = "N/A"
-            for row_idx, row in enumerate(text):
-                if keyword in row:
-                    keyword_idx = row.index(keyword)
-                    if behavior == "right":
-                        value = row[keyword_idx + 1] if keyword_idx + 1 < len(row) else "N/A"
-                    elif behavior == "left":
-                        value = row[keyword_idx - 1] if keyword_idx - 1 >= 0 else "N/A"
-                    elif behavior == "below":
-                        for next_row_idx in range(row_idx + 1, len(text)):
-                            next_row = text[next_row_idx]
-                            if next_row[keyword_idx]:
-                                value = next_row[keyword_idx]
-                                break
-                        else:
-                            value = "N/A"
-                    elif behavior == "above":
-                        for prev_row_idx in range(row_idx - 1, -1, -1):
-                            prev_row = text[row_idx]
-                            if prev_row[keyword_idx]:
-                                value = prev_row[keyword_idx]
-                                break
-                        else:
-                            value = "N/A"
-                    elif behavior == "keyword":
-                        value = keyword
-                    break
-            extracted_data[column] = value
-    else:  # Handle text data (e.g., PDF, TXT, DOCX)
-        lines = text.split("\n")
-        for column, keyword in keywords.items():
-            behavior = behaviors.get(column, "right")
-            value = "N/A"
-            for i, line in enumerate(lines):
-                if keyword in line:
-                    if behavior == "right":
-                        start_index = line.find(keyword) + len(keyword)
-                        remaining_text = line[start_index:].strip()
-                        value = remaining_text.split()[0] if remaining_text else "N/A"
-                    elif behavior == "left":
-                        start_index = line.find(keyword)
-                        preceding_text = line[:start_index].strip()
-                        value = preceding_text.split()[-1] if preceding_text else "N/A"
-                    elif behavior == "below":
-                        for next_line_idx in range(i + 1, len(lines)):
-                            next_line = lines[next_line_idx].strip()
-                            if next_line:
-                                value = next_line
-                                break
-                        else:
-                            value = "N/A"
-                    elif behavior == "above":
-                        for prev_line_idx in range(i - 1, -1, -1):
-                            prev_line = lines[prev_line_idx].strip()
-                            if prev_line:
-                                value = prev_line
-                                break
-                        else:
-                            value = "N/A"
-                    elif behavior == "keyword":
-                        value = keyword
-                    break
-            extracted_data[column] = value
-    return extracted_data
 
 # Streamlit app
 def main():
