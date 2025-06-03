@@ -9,7 +9,7 @@ import xlrd  # For reading .xls files
 from openpyxl import load_workbook  # For reading .xlsx files
 
 # Increase recursion limit
-sys.setrecursionlimit(10000)
+sys.setrecursionlimit(5000)
 
 # File extraction functions
 def extract_text_from_pdf(pdf_path):
@@ -81,6 +81,77 @@ def extract_text(file_path):
         st.error(f"Unsupported file type: {file_path}")
         return ""
 
+# Data extraction function
+def extract_data_from_pdf(text, keywords, behaviors):
+    extracted_data = {}
+    if isinstance(text, list):  # Handle .xls data (list of rows)
+        for column, keyword in keywords.items():
+            behavior = behaviors.get(column, "right")
+            value = "N/A"
+            for row_idx, row in enumerate(text):
+                if keyword in row:
+                    keyword_idx = row.index(keyword)
+                    if behavior == "right":
+                        value = row[keyword_idx + 1] if keyword_idx + 1 < len(row) else "N/A"
+                    elif behavior == "left":
+                        value = row[keyword_idx - 1] if keyword_idx - 1 >= 0 else "N/A"
+                    elif behavior == "below":
+                        for next_row_idx in range(row_idx + 1, len(text)):
+                            next_row = text[next_row_idx]
+                            if next_row[keyword_idx]:
+                                value = next_row[keyword_idx]
+                                break
+                        else:
+                            value = "N/A"
+                    elif behavior == "above":
+                        for prev_row_idx in range(row_idx - 1, -1, -1):
+                            prev_row = text[prev_row_idx]
+                            if prev_row[keyword_idx]:
+                                value = prev_row[keyword_idx]
+                                break
+                        else:
+                            value = "N/A"
+                    elif behavior == "keyword":
+                        value = keyword
+                    break
+            extracted_data[column] = value
+    else:  # Handle text data (e.g., PDF, TXT, DOCX)
+        lines = text.split("\n")
+        for column, keyword in keywords.items():
+            behavior = behaviors.get(column, "right")
+            value = "N/A"
+            for i, line in enumerate(lines):
+                if keyword in line:
+                    if behavior == "right":
+                        start_index = line.find(keyword) + len(keyword)
+                        remaining_text = line[start_index:].strip()
+                        value = remaining_text.split()[0] if remaining_text else "N/A"
+                    elif behavior == "left":
+                        start_index = line.find(keyword)
+                        preceding_text = line[:start_index].strip()
+                        value = preceding_text.split()[-1] if preceding_text else "N/A"
+                    elif behavior == "below":
+                        for next_line_idx in range(i + 1, len(lines)):
+                            next_line = lines[next_line_idx].strip()
+                            if next_line:
+                                value = next_line
+                                break
+                        else:
+                            value = "N/A"
+                    elif behavior == "above":
+                        for prev_line_idx in range(i - 1, -1, -1):
+                            prev_line = lines[prev_line_idx].strip()
+                            if prev_line:
+                                value = prev_line
+                                break
+                        else:
+                            value = "N/A"
+                    elif behavior == "keyword":
+                        value = keyword
+                    break
+            extracted_data[column] = value
+    return extracted_data
+
 # Streamlit app
 def main():
     st.title("File Data Extraction and CSV Generator")
@@ -116,8 +187,13 @@ def main():
                     temp_file.write(uploaded_file.read())
                     temp_file_path = temp_file.name
                 
-                # Extract text and process the file
+                # Extract text from the temporary file
                 text = extract_text(temp_file_path)
+                if not text:
+                    st.error(f"Failed to extract text from file: {uploaded_file.name}")
+                    continue
+                
+                # Extract data from the text
                 extracted_data = extract_data_from_pdf(text, keywords, extraction_behaviors)
                 row = [extracted_data.get(column, "N/A") for column in column_titles]
                 rows.append(row)
