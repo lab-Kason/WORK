@@ -1,6 +1,7 @@
 import streamlit as st
 import csv
 import os
+import tempfile
 from pdfminer.high_level import extract_text  # For reading PDF files
 from docx import Document  # For reading .docx files
 import xlrd  # For reading .xls files
@@ -172,8 +173,13 @@ def main():
         if uploaded_files:
             rows = []
             for uploaded_file in uploaded_files:
-                file_path = uploaded_file.name
-                text = extract_text(file_path)
+                # Save the uploaded file to a temporary directory
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file.write(uploaded_file.read())
+                    temp_file_path = temp_file.name
+                
+                # Extract text and process the file
+                text = extract_text(temp_file_path)
                 extracted_data = extract_data_from_pdf(text, keywords, extraction_behaviors)
                 row = [extracted_data.get(column, "N/A") for column in column_titles]
                 rows.append(row)
@@ -184,7 +190,15 @@ def main():
                 writer = csv.writer(csv_file)
                 writer.writerow(column_titles)
                 writer.writerows(rows)
-            st.success(f"CSV file created successfully: {csv_file_path}")
+            
+            # Provide download button for the CSV file
+            with open(csv_file_path, "rb") as f:
+                st.download_button(
+                    label="Download CSV",
+                    data=f.read(),
+                    file_name="output.csv",
+                    mime="text/csv"
+                )
         else:
             st.error("No files uploaded!")
 
