@@ -1,20 +1,33 @@
 import streamlit as st
 import csv
 import os
-import tempfile
+import sys
 from pdfminer.high_level import extract_text  # For reading PDF files
+from PyPDF2 import PdfReader  # Fallback for reading PDF files
 from docx import Document  # For reading .docx files
 import xlrd  # For reading .xls files
 from openpyxl import load_workbook  # For reading .xlsx files
 
+# Increase recursion limit
+sys.setrecursionlimit(5000)
+
 # File extraction functions
 def extract_text_from_pdf(pdf_path):
     try:
+        # Attempt extraction with pdfminer.six
         text = extract_text(pdf_path)
         return text
-    except Exception as e:
-        st.error(f"Could not read PDF file {pdf_path}: {e}")
-        return ""
+    except Exception:
+        try:
+            # Fallback to PyPDF2
+            reader = PdfReader(pdf_path)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+            return text
+        except Exception as e:
+            st.error(f"Could not read PDF file {pdf_path}: {e}")
+            return ""
 
 def extract_text_from_txt(txt_path):
     try:
@@ -173,14 +186,8 @@ def main():
         if uploaded_files:
             rows = []
             for uploaded_file in uploaded_files:
-                # Save the uploaded file with its original extension
-                file_extension = os.path.splitext(uploaded_file.name)[1]
-                with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-                    temp_file.write(uploaded_file.read())
-                    temp_file_path = temp_file.name
-                
-                # Extract text and process the file
-                text = extract_text(temp_file_path)
+                file_path = uploaded_file.name
+                text = extract_text(file_path)
                 extracted_data = extract_data_from_pdf(text, keywords, extraction_behaviors)
                 row = [extracted_data.get(column, "N/A") for column in column_titles]
                 rows.append(row)
@@ -191,15 +198,7 @@ def main():
                 writer = csv.writer(csv_file)
                 writer.writerow(column_titles)
                 writer.writerows(rows)
-            
-            # Provide download button for the CSV file
-            with open(csv_file_path, "rb") as f:
-                st.download_button(
-                    label="Download CSV",
-                    data=f.read(),
-                    file_name="output.csv",
-                    mime="text/csv"
-                )
+            st.success(f"CSV file created successfully: {csv_file_path}")
         else:
             st.error("No files uploaded!")
 
