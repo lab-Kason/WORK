@@ -85,7 +85,7 @@ def extract_text(file_path):
 # Data extraction function
 def extract_data_from_pdf(text, keywords, behaviors):
     extracted_data = {}
-    meaningless_words = {"Attachment", "Page", "Document", "File"}  # Define meaningless words
+    meaningless_words = {"Attachments", "Page", "Document", "File"}  # Define meaningless words
     spacing_threshold = 5  # Define spacing threshold
 
     if isinstance(text, list):  # Handle .xls data (list of rows)
@@ -130,35 +130,32 @@ def extract_data_from_pdf(text, keywords, behaviors):
                     if behavior == "right":
                         start_index = line.find(keyword) + len(keyword)
                         remaining_text = line[start_index:].strip()
-                        # Extract consecutive meaningful words
-                        words = remaining_text.split()
-                        meaningful_words = []
-                        for word in words:
+                        # Extract meaningful text until encountering meaningless words or excessive spacing
+                        meaningful_text = ""
+                        for word in remaining_text.split():
                             if word in meaningless_words:
                                 break  # Stop if encountering meaningless words
-                            meaningful_words.append(word)
-                        value = " ".join(meaningful_words) if meaningful_words else "N/A"
+                            meaningful_text += word + " "
+                        value = meaningful_text.strip() if meaningful_text else "N/A"
                     elif behavior == "left":
                         start_index = line.find(keyword)
                         preceding_text = line[:start_index].strip()
-                        words = preceding_text.split()
-                        meaningful_words = []
-                        for word in reversed(words):  # Reverse to check left
+                        meaningful_text = ""
+                        for word in reversed(preceding_text.split()):  # Reverse to check left
                             if word in meaningless_words:
                                 break  # Stop if encountering meaningless words
-                            meaningful_words.insert(0, word)
-                        value = " ".join(meaningful_words) if meaningful_words else "N/A"
+                            meaningful_text = word + " " + meaningful_text
+                        value = meaningful_text.strip() if meaningful_text else "N/A"
                     elif behavior == "below":
                         for next_line_idx in range(i + 1, len(lines)):
                             next_line = lines[next_line_idx].strip()
                             if next_line:
-                                words = next_line.split()
-                                meaningful_words = []
-                                for word in words:
+                                meaningful_text = ""
+                                for word in next_line.split():
                                     if word in meaningless_words:
                                         break  # Stop if encountering meaningless words
-                                    meaningful_words.append(word)
-                                value = " ".join(meaningful_words) if meaningful_words else "N/A"
+                                    meaningful_text += word + " "
+                                value = meaningful_text.strip() if meaningful_text else "N/A"
                                 if value not in values:  # Avoid duplicates
                                     values.append(value)
                         continue
@@ -166,13 +163,12 @@ def extract_data_from_pdf(text, keywords, behaviors):
                         for prev_line_idx in range(i - 1, -1, -1):
                             prev_line = lines[prev_line_idx].strip()
                             if prev_line:
-                                words = prev_line.split()
-                                meaningful_words = []
-                                for word in words:
+                                meaningful_text = ""
+                                for word in prev_line.split():
                                     if word in meaningless_words:
                                         break  # Stop if encountering meaningless words
-                                    meaningful_words.append(word)
-                                value = " ".join(meaningful_words) if meaningful_words else "N/A"
+                                    meaningful_text += word + " "
+                                value = meaningful_text.strip() if meaningful_text else "N/A"
                                 if value not in values:  # Avoid duplicates
                                     values.append(value)
                         continue
