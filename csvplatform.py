@@ -84,10 +84,13 @@ def extract_text(file_path):
 # Data extraction function
 def extract_data_from_pdf(text, keywords, behaviors):
     extracted_data = {}
+    meaningless_words = {"Attachment", "Page", "Document", "File"}  # Define meaningless words
+    spacing_threshold = 5  # Define spacing threshold
+
     if isinstance(text, list):  # Handle .xls data (list of rows)
         for column, keyword in keywords.items():
             behavior = behaviors.get(column, "right")
-            value = "N/A"
+            values = []  # Collect all matches
             for row_idx, row in enumerate(text):
                 if keyword in row:
                     keyword_idx = row.index(keyword)
@@ -100,56 +103,76 @@ def extract_data_from_pdf(text, keywords, behaviors):
                             next_row = text[next_row_idx]
                             if next_row[keyword_idx]:
                                 value = next_row[keyword_idx]
-                                break
-                        else:
-                            value = "N/A"
+                                values.append(value)
+                        continue
                     elif behavior == "above":
                         for prev_row_idx in range(row_idx - 1, -1, -1):
                             prev_row = text[prev_row_idx]
                             if prev_row[keyword_idx]:
                                 value = prev_row[keyword_idx]
-                                break
-                        else:
-                            value = "N/A"
+                                values.append(value)
+                        continue
                     elif behavior == "keyword":
                         value = keyword
-                    break
-            extracted_data[column] = value
+                    values.append(value)
+            extracted_data[column] = values if values else ["N/A"]
     else:  # Handle text data (e.g., PDF, TXT, DOCX)
         lines = text.split("\n")
         for column, keyword in keywords.items():
             behavior = behaviors.get(column, "right")
-            value = "N/A"
+            values = []  # Collect all matches
             for i, line in enumerate(lines):
                 if keyword in line:
                     if behavior == "right":
                         start_index = line.find(keyword) + len(keyword)
                         remaining_text = line[start_index:].strip()
-                        value = remaining_text.split()[0] if remaining_text else "N/A"
+                        words = remaining_text.split()
+                        filtered_words = []
+                        for j in range(len(words) - 1):
+                            if line.find(words[j + 1]) - line.find(words[j]) > spacing_threshold:  # Check spacing
+                                break
+                            filtered_words.append(words[j])
+                        value = " ".join(filtered_words) if filtered_words else "N/A"
                     elif behavior == "left":
                         start_index = line.find(keyword)
                         preceding_text = line[:start_index].strip()
-                        value = preceding_text.split()[-1] if preceding_text else "N/A"
+                        words = preceding_text.split()
+                        filtered_words = []
+                        for j in range(len(words) - 1):
+                            if line.find(words[j + 1]) - line.find(words[j]) > spacing_threshold:  # Check spacing
+                                break
+                            filtered_words.append(words[j])
+                        value = " ".join(filtered_words) if filtered_words else "N/A"
                     elif behavior == "below":
                         for next_line_idx in range(i + 1, len(lines)):
                             next_line = lines[next_line_idx].strip()
                             if next_line:
-                                value = next_line
-                                break
-                        else:
-                            value = "N/A"
+                                words = next_line.split()
+                                filtered_words = []
+                                for j in range(len(words) - 1):
+                                    if next_line.find(words[j + 1]) - next_line.find(words[j]) > spacing_threshold:
+                                        break
+                                    filtered_words.append(words[j])
+                                value = " ".join(filtered_words) if filtered_words else "N/A"
+                                values.append(value)
+                        continue
                     elif behavior == "above":
                         for prev_line_idx in range(i - 1, -1, -1):
                             prev_line = lines[prev_line_idx].strip()
                             if prev_line:
-                                value = prev_line
-                                break
-                        else:
-                            value = "N/A"
+                                words = prev_line.split()
+                                filtered_words = []
+                                for j in range(len(words) - 1):
+                                    if prev_line.find(words[j + 1]) - prev_line.find(words[j]) > spacing_threshold:
+                                        break
+                                    filtered_words.append(words[j])
+                                value = " ".join(filtered_words) if filtered_words else "N/A"
+                                values.append(value)
+                        continue
                     elif behavior == "keyword":
                         value = keyword
-                    break
-            extracted_data[column] = value
+                    values.append(value)
+            extracted_data[column] = values if values else ["N/A"]
     return extracted_data
 
 # Streamlit app
@@ -172,7 +195,7 @@ def main():
     for column in column_titles:
         extraction_behaviors[column] = st.selectbox(
             f"Select extraction behavior for column '{column}'",
-            ["right", "left", "below", "above", "keyword"],
+            ["right", "left", "below", "above", "keyword"],  # Added "keyword" option
             index=2
         )
     
@@ -195,7 +218,7 @@ def main():
                 
                 # Extract data from the text
                 extracted_data = extract_data_from_pdf(text, keywords, extraction_behaviors)
-                row = [extracted_data.get(column, "N/A") for column in column_titles]
+                row = [", ".join(extracted_data.get(column, ["N/A"])) for column in column_titles]
                 rows.append(row)
             
             # Save to CSV
