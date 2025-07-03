@@ -1,3 +1,4 @@
+#Stable/dun move
 import streamlit as st
 import csv
 import os
@@ -126,47 +127,44 @@ def extract_data_from_pdf(text, keywords, behaviors):
                     if behavior == "right":
                         start_index = line.find(keyword) + len(keyword)
                         remaining_text = line[start_index:].strip()
-                        words = remaining_text.split()
-                        filtered_words = []
-                        for j in range(len(words) - 1):
-                            if line.find(words[j + 1]) - line.find(words[j]) > spacing_threshold:  # Check spacing
-                                break
-                            filtered_words.append(words[j])
-                        value = " ".join(filtered_words) if filtered_words else "N/A"
+                        # Extract meaningful text based on spacing
+                        meaningful_text = ""
+                        for char_idx, char in enumerate(remaining_text):
+                            if char_idx > spacing_threshold and char.isspace():
+                                break  # Stop if spacing exceeds threshold
+                            meaningful_text += char
+                        value = meaningful_text.strip() if meaningful_text else "N/A"
                     elif behavior == "left":
                         start_index = line.find(keyword)
                         preceding_text = line[:start_index].strip()
-                        words = preceding_text.split()
-                        filtered_words = []
-                        for j in range(len(words) - 1):
-                            if line.find(words[j + 1]) - line.find(words[j]) > spacing_threshold:  # Check spacing
-                                break
-                            filtered_words.append(words[j])
-                        value = " ".join(filtered_words) if filtered_words else "N/A"
+                        meaningful_text = ""
+                        for char_idx, char in enumerate(preceding_text[::-1]):  # Reverse to check left
+                            if char_idx > spacing_threshold and char.isspace():
+                                break  # Stop if spacing exceeds threshold
+                            meaningful_text = char + meaningful_text
+                        value = meaningful_text.strip() if meaningful_text else "N/A"
                     elif behavior == "below":
                         for next_line_idx in range(i + 1, len(lines)):
                             next_line = lines[next_line_idx].strip()
                             if next_line:
-                                words = next_line.split()
-                                filtered_words = []
-                                for j in range(len(words) - 1):
-                                    if next_line.find(words[j + 1]) - next_line.find(words[j]) > spacing_threshold:
-                                        break
-                                    filtered_words.append(words[j])
-                                value = " ".join(filtered_words) if filtered_words else "N/A"
+                                meaningful_text = ""
+                                for char_idx, char in enumerate(next_line):
+                                    if char_idx > spacing_threshold and char.isspace():
+                                        break  # Stop if spacing exceeds threshold
+                                    meaningful_text += char
+                                value = meaningful_text.strip() if meaningful_text else "N/A"
                                 values.append(value)
                         continue
                     elif behavior == "above":
                         for prev_line_idx in range(i - 1, -1, -1):
                             prev_line = lines[prev_line_idx].strip()
                             if prev_line:
-                                words = prev_line.split()
-                                filtered_words = []
-                                for j in range(len(words) - 1):
-                                    if prev_line.find(words[j + 1]) - prev_line.find(words[j]) > spacing_threshold:
-                                        break
-                                    filtered_words.append(words[j])
-                                value = " ".join(filtered_words) if filtered_words else "N/A"
+                                meaningful_text = ""
+                                for char_idx, char in enumerate(prev_line):
+                                    if char_idx > spacing_threshold and char.isspace():
+                                        break  # Stop if spacing exceeds threshold
+                                    meaningful_text += char
+                                value = meaningful_text.strip() if meaningful_text else "N/A"
                                 values.append(value)
                         continue
                     elif behavior == "keyword":
