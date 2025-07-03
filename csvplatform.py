@@ -85,8 +85,7 @@ def extract_text(file_path):
 # Data extraction function
 def extract_data_from_pdf(text, keywords, behaviors):
     extracted_data = {}
-    meaningless_words = {"Attachments", "Page", "Document", "File"}  # Define meaningless words
-    spacing_threshold = 5  # Define spacing threshold
+    meaningless_words = {"Attachments", "Page", "Document", "File"}  # Define meaningless word
 
     if isinstance(text, list):  # Handle .xls data (list of rows)
         for column, keyword in keywords.items():
