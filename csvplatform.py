@@ -104,18 +104,21 @@ def extract_data_from_pdf(text, keywords, behaviors):
                             next_row = text[next_row_idx]
                             if next_row[keyword_idx]:
                                 value = next_row[keyword_idx]
-                                values.append(value)
+                                if value not in values:  # Avoid duplicates
+                                    values.append(value)
                         continue
                     elif behavior == "above":
                         for prev_row_idx in range(row_idx - 1, -1, -1):
                             prev_row = text[prev_row_idx]
                             if prev_row[keyword_idx]:
                                 value = prev_row[keyword_idx]
-                                values.append(value)
+                                if value not in values:  # Avoid duplicates
+                                    values.append(value)
                         continue
                     elif behavior == "keyword":
                         value = keyword
-                    values.append(value)
+                    if value not in values:  # Avoid duplicates
+                        values.append(value)
             extracted_data[column] = values if values else ["N/A"]
     else:  # Handle text data (e.g., PDF, TXT, DOCX)
         lines = text.split("\n")
@@ -156,7 +159,8 @@ def extract_data_from_pdf(text, keywords, behaviors):
                                         break  # Stop if encountering meaningless words
                                     meaningful_words.append(word)
                                 value = " ".join(meaningful_words) if meaningful_words else "N/A"
-                                values.append(value)
+                                if value not in values:  # Avoid duplicates
+                                    values.append(value)
                         continue
                     elif behavior == "above":
                         for prev_line_idx in range(i - 1, -1, -1):
@@ -169,11 +173,13 @@ def extract_data_from_pdf(text, keywords, behaviors):
                                         break  # Stop if encountering meaningless words
                                     meaningful_words.append(word)
                                 value = " ".join(meaningful_words) if meaningful_words else "N/A"
-                                values.append(value)
+                                if value not in values:  # Avoid duplicates
+                                    values.append(value)
                         continue
                     elif behavior == "keyword":
                         value = keyword
-                    values.append(value)
+                    if value not in values:  # Avoid duplicates
+                        values.append(value)
             extracted_data[column] = values if values else ["N/A"]
     return extracted_data
 
