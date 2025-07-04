@@ -175,7 +175,10 @@ def extract_data_from_pdf(text, keywords, behaviors):
                         value = keyword
                     if value not in values:  # Avoid duplicates
                         values.append(value)
-            extracted_data[column] = values if values else ["N/A"]
+            # Remove meaningless words from the extracted result
+            extracted_data[column] = [
+                val for val in values if val not in meaningless_words
+            ] if values else ["N/A"]
     return extracted_data
 
 # Streamlit app
