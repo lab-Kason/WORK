@@ -82,10 +82,9 @@ def extract_text(file_path):
         st.error(f"Unsupported file type: {file_path}")
         return ""
 
-# Data extraction function
-def extract_data_from_pdf(text, keywords, behaviors):
+# Modify the extract_data_from_pdf function to accept meaningless words as a parameter
+def extract_data_from_pdf(text, keywords, behaviors, meaningless_words):
     extracted_data = {}
-    meaningless_words = {"Attachments", "Page", "Document", "File"}  # Define meaningless words
 
     if isinstance(text, list):  # Handle .xls data (list of rows)
         for column, keyword in keywords.items():
@@ -101,7 +100,8 @@ def extract_data_from_pdf(text, keywords, behaviors):
                     elif behavior == "below":
                         for next_row_idx in range(row_idx + 1, len(text)):
                             next_row = text[next_row_idx]
-                            if next_row[keyword_idx]:
+                            # Ensure next_row has enough elements
+                            if keyword_idx < len(next_row) and next_row[keyword_idx]:
                                 value = next_row[keyword_idx]
                                 if value not in values:  # Avoid duplicates
                                     values.append(value)
@@ -109,7 +109,8 @@ def extract_data_from_pdf(text, keywords, behaviors):
                     elif behavior == "above":
                         for prev_row_idx in range(row_idx - 1, -1, -1):
                             prev_row = text[prev_row_idx]
-                            if prev_row[keyword_idx]:
+                            # Ensure prev_row has enough elements
+                            if keyword_idx < len(prev_row) and prev_row[keyword_idx]:
                                 value = prev_row[keyword_idx]
                                 if value not in values:  # Avoid duplicates
                                     values.append(value)
@@ -133,7 +134,7 @@ def extract_data_from_pdf(text, keywords, behaviors):
                         meaningful_text = []
                         for word in remaining_text.split():
                             if word in meaningless_words:
-                                break  # Stop if encountering meaningless words
+                                continue  # Skip meaningless words
                             meaningful_text.append(word)
                         value = " ".join(meaningful_text) if meaningful_text else "N/A"
                     elif behavior == "left":
@@ -142,7 +143,7 @@ def extract_data_from_pdf(text, keywords, behaviors):
                         meaningful_text = []
                         for word in reversed(preceding_text.split()):  # Reverse to check left
                             if word in meaningless_words:
-                                break  # Stop if encountering meaningless words
+                                continue  # Skip meaningless words
                             meaningful_text.insert(0, word)
                         value = " ".join(meaningful_text) if meaningful_text else "N/A"
                     elif behavior == "below":
@@ -152,7 +153,7 @@ def extract_data_from_pdf(text, keywords, behaviors):
                                 meaningful_text = []
                                 for word in next_line.split():
                                     if word in meaningless_words:
-                                        break  # Stop if encountering meaningless words
+                                        continue  # Skip meaningless words
                                     meaningful_text.append(word)
                                 value = " ".join(meaningful_text) if meaningful_text else "N/A"
                                 if value not in values:  # Avoid duplicates
@@ -165,7 +166,7 @@ def extract_data_from_pdf(text, keywords, behaviors):
                                 meaningful_text = []
                                 for word in prev_line.split():
                                     if word in meaningless_words:
-                                        break  # Stop if encountering meaningless words
+                                        continue  # Skip meaningless words
                                     meaningful_text.append(word)
                                 value = " ".join(meaningful_text) if meaningful_text else "N/A"
                                 if value not in values:  # Avoid duplicates
@@ -192,6 +193,10 @@ def main():
     column_titles = st.text_input("Enter column titles (comma-separated)", "Item,Description,Qty,Amount")
     column_titles = [title.strip() for title in column_titles.split(",")]
     
+    # Add a predefined "Item" column if not explicitly provided
+    if "Item" not in column_titles:
+        column_titles.insert(0, "Item")
+    
     keywords = {}
     for column in column_titles:
         keywords[column] = st.text_input(f"Enter keyword for column '{column}'", column)
@@ -205,6 +210,12 @@ def main():
             index=2
         )
     
+    # Add user-defined meaningless words input
+    meaningless_words_input = st.text_input(
+        "Enter meaningless words (comma-separated)"
+    )
+    meaningless_words = set(word.strip() for word in meaningless_words_input.split(","))
+    
     # Process files and generate CSV
     if st.button("Generate CSV"):
         if uploaded_files:
@@ -212,7 +223,7 @@ def main():
             for uploaded_file in uploaded_files:
                 # Save the uploaded file to a temporary directory
                 file_extension = os.path.splitext(uploaded_file.name)[1]
-                with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension, mode='wb') as temp_file:
                     temp_file.write(uploaded_file.read())
                     temp_file_path = temp_file.name
                 
@@ -223,9 +234,29 @@ def main():
                     continue
                 
                 # Extract data from the text
-                extracted_data = extract_data_from_pdf(text, keywords, extraction_behaviors)
-                row = [", ".join(extracted_data.get(column, ["N/A"])) for column in column_titles]
-                rows.append(row)
+                extracted_data = extract_data_from_pdf(text, keywords, extraction_behaviors, meaningless_words)
+                
+                # Handle dynamic item identification
+                item_rows = []
+                item_counter = 1
+                for column in column_titles:
+                    values = extracted_data.get(column, ["N/A"])
+                    for idx, value in enumerate(values):
+                        if column == "Item":
+                            # Automatically generate item identifiers if not explicitly provided
+                            if idx >= len(item_rows):  # Create a new row if needed
+                                item_identifier = f"Item {item_counter}"
+                                item_rows.append([item_identifier] + ["N/A"] * (len(column_titles) - 1))
+                                item_counter += 1
+                            item_rows[idx][0] = value  # Update the "Item" column
+                        else:
+                            # Ensure the row exists before appending values
+                            if idx >= len(item_rows):
+                                item_rows.append(["N/A"] * len(column_titles))
+                            col_idx = column_titles.index(column)  # Get the correct column index
+                            item_rows[idx][col_idx] = value  # Update the correct column
+            
+                rows.extend(item_rows)
             
             # Save to CSV
             csv_file_path = os.path.join(os.getcwd(), "output.csv")
@@ -247,3 +278,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    #streamlit run csvgenerateplatform.py
